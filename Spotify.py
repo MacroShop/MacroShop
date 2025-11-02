@@ -16,15 +16,15 @@ CODE_FILE = Path("HM Kodlar.txt")
 DEFAULT_WAIT = 20
 ACCOUNT_CREATION_COUNT = 3
 
-EMAIL_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div[1]/input")
-CONTINUE_BUTTON = (By.XPATH, "/html/body/div/main/div/form/div[2]/button")
-PASSWORD_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div[1]/input")
-BIRTH_DAY_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div[1]/div/input[1]")
-BIRTH_MONTH_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div[1]/div/input[2]")
-BIRTH_YEAR_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div[1]/div/input[3]")
+EMAIL_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div/input")
+CONTINUE_BUTTON = (By.XPATH, "/html/body/div/main/div/form/button")
+PASSWORD_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div/input")
+BIRTH_DAY_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[1]")
+BIRTH_MONTH_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[2]")
+BIRTH_YEAR_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[3]")
 REGISTER_BUTTON = (By.XPATH, "/html/body/div/main/div/form/button[1]")
-OFFER_BUTTON = (By.XPATH, "/html/body/div/div/div/div/main/div/ul/li[8]/button/article/div[1]/span/img")
-CODE_TEXT = (By.XPATH, "/html/body/div/div/div/div/main/div/div[2]/div/div[3]/label")
+OFFER_BUTTON = (By.XPATH, "/html/body/div/div[2]/div/div/main/div/ul/li[3]/button/article/div[1]/span/img")
+CODE_TEXT = (By.XPATH, "/html/body/div/div[2]/div/div/main/div/div[2]/div/div[3]/p")
 
 
 def setup_driver() -> webdriver.Chrome:
