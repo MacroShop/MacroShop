@@ -1,5 +1,6 @@
 import random
 import string
+import time
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -66,13 +67,24 @@ def wait_and_send_keys(
     return element
 
 
-def wait_and_click(driver: webdriver.Chrome, locator: Tuple[str, str], timeout: int = DEFAULT_WAIT):
+def wait_and_click(
+    driver: webdriver.Chrome,
+    locator: Tuple[str, str],
+    timeout: int = DEFAULT_WAIT,
+    *,
+    delay_before_click: float = 0.0,
+    delay_after_click: float = 0.0,
+):
     element = wait_for_clickable(driver, locator, timeout)
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+    if delay_before_click > 0:
+        time.sleep(delay_before_click)
     try:
         element.click()
     except WebDriverException:
         driver.execute_script("arguments[0].click();", element)
+    if delay_after_click > 0:
+        time.sleep(delay_after_click)
     return element
 
 
@@ -109,7 +121,7 @@ def create_hm_account(driver: webdriver.Chrome) -> Tuple[Optional[str], Optional
 
     try:
         wait_and_send_keys(driver, EMAIL_INPUT, email)
-        wait_and_click(driver, CONTINUE_BUTTON)
+        wait_and_click(driver, CONTINUE_BUTTON, delay_before_click=2)
 
         wait_and_send_keys(driver, PASSWORD_INPUT, password)
 
@@ -120,7 +132,7 @@ def create_hm_account(driver: webdriver.Chrome) -> Tuple[Optional[str], Optional
         ):
             wait_and_send_keys(driver, locator, value)
 
-        wait_and_click(driver, REGISTER_BUTTON)
+        wait_and_click(driver, REGISTER_BUTTON, delay_before_click=2)
 
         try:
             wait_and_click(driver, OFFER_BUTTON, timeout=15)
