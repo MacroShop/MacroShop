@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    StaleElementReferenceException,
+    TimeoutException,
+    WebDriverException,
+)
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -24,6 +29,7 @@ BIRTH_DAY_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[
 BIRTH_MONTH_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[2]")
 BIRTH_YEAR_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[3]")
 REGISTER_BUTTON = (By.XPATH, "/html/body/div/main/div/form/button[1]")
+COOKIE_REJECT_BUTTON = (By.ID, "onetrust-reject-all-handler")
 OFFER_BUTTON = (By.XPATH, "/html/body/div/div[2]/div/div/main/div/ul/li[3]/button/article/div[1]/span/img")
 CODE_TEXT = (By.XPATH, "/html/body/div/div[2]/div/div/main/div/div[2]/div/div[3]/p")
 
@@ -75,17 +81,44 @@ def wait_and_click(
     delay_before_click: float = 0.0,
     delay_after_click: float = 0.0,
 ):
-    element = wait_for_clickable(driver, locator, timeout)
-    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-    if delay_before_click > 0:
-        time.sleep(delay_before_click)
-    try:
-        element.click()
-    except WebDriverException:
-        driver.execute_script("arguments[0].click();", element)
-    if delay_after_click > 0:
-        time.sleep(delay_after_click)
-    return element
+    end_time = time.monotonic() + timeout
+    last_exception: Optional[Exception] = None
+
+    while True:
+        remaining = end_time - time.monotonic()
+        if remaining <= 0:
+            message = f"Element not clickable within timeout: {locator}"
+            if last_exception:
+                raise TimeoutException(message) from last_exception
+            raise TimeoutException(message)
+
+        effective_timeout = max(int(remaining), 1)
+
+        try:
+            element = wait_for_clickable(driver, locator, effective_timeout)
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+
+            if delay_before_click > 0:
+                time.sleep(delay_before_click)
+
+            try:
+                element.click()
+            except (ElementClickInterceptedException, WebDriverException):
+                driver.execute_script("arguments[0].click();", element)
+
+            if delay_after_click > 0:
+                time.sleep(delay_after_click)
+
+            return element
+
+        except (StaleElementReferenceException, ElementClickInterceptedException) as exc:
+            last_exception = exc
+            time.sleep(0.2)
+            continue
+        except TimeoutException as exc:
+            last_exception = exc
+            time.sleep(0.2)
+            continue
 
 
 def random_email(prefix_length: int = 9) -> str:
@@ -171,6 +204,14 @@ def reset_session(driver: webdriver.Chrome) -> None:
         pass
 
 
+def reject_cookies(driver: webdriver.Chrome) -> None:
+    try:
+        wait_and_click(driver, COOKIE_REJECT_BUTTON, timeout=10, delay_after_click=0.5)
+        print("Çerez tercihi reddedildi.")
+    except (TimeoutException, WebDriverException):
+        pass
+
+
 def main() -> None:
     driver = setup_driver()
     CODE_FILE.touch(exist_ok=True)
@@ -190,6 +231,8 @@ def main() -> None:
             except TimeoutException:
                 print("Giriş sayfası zaman aşımına uğradı.")
                 break
+
+            reject_cookies(driver)
 
             email, code = create_hm_account(driver)
 
