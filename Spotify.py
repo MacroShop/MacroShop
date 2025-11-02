@@ -1,7 +1,8 @@
 import random
+import re
 import string
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, WebDriverException
@@ -15,16 +16,66 @@ LOGIN_URL = "https://www2.hm.com/tr_tr/login"
 CODE_FILE = Path("HM Kodlar.txt")
 DEFAULT_WAIT = 20
 ACCOUNT_CREATION_COUNT = 3
+CODE_PATTERN = re.compile(r"[A-Z0-9]{6,}")
 
-EMAIL_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div/input")
-CONTINUE_BUTTON = (By.XPATH, "/html/body/div/main/div/form/button")
-PASSWORD_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div/input")
-BIRTH_DAY_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[1]")
-BIRTH_MONTH_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[2]")
-BIRTH_YEAR_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[3]")
-REGISTER_BUTTON = (By.XPATH, "/html/body/div/main/div/form/button[1]")
-OFFER_BUTTON = (By.XPATH, "/html/body/div/div[2]/div/div/main/div/ul/li[3]/button/article/div[1]/span/img")
-CODE_TEXT = (By.XPATH, "/html/body/div/div[2]/div/div/main/div/div[2]/div/div[3]/p")
+Locator = Tuple[str, str]
+LocatorList = Sequence[Locator]
+
+EMAIL_INPUT_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "main form input[type='email']"),
+    (By.CSS_SELECTOR, "main form input[name*='mail']"),
+    (By.CSS_SELECTOR, "form input[id*='mail']"),
+)
+
+CONTINUE_BUTTON_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "main form button[type='submit']"),
+    (By.CSS_SELECTOR, "form button[id*='continue']"),
+    (By.CSS_SELECTOR, "form button[name*='continue']"),
+)
+
+PASSWORD_INPUT_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "main form input[type='password']"),
+    (By.CSS_SELECTOR, "main form input[name*='password']"),
+    (By.CSS_SELECTOR, "form input[id*='password']"),
+)
+
+BIRTH_DAY_INPUT_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "main form input[name*='day']"),
+    (By.CSS_SELECTOR, "main form input[id*='day']"),
+)
+
+BIRTH_MONTH_INPUT_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "main form input[name*='month']"),
+    (By.CSS_SELECTOR, "main form input[id*='month']"),
+)
+
+BIRTH_YEAR_INPUT_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "main form input[name*='year']"),
+    (By.CSS_SELECTOR, "main form input[id*='year']"),
+)
+
+REGISTER_BUTTON_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "main form button[type='submit']"),
+    (By.CSS_SELECTOR, "form button[id*='register']"),
+    (By.CSS_SELECTOR, "form button[name*='register']"),
+)
+
+OFFER_BUTTON_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "ul li button[data-testid*='voucher']"),
+    (By.CSS_SELECTOR, "ul li button[aria-label*='kod']"),
+    (By.CSS_SELECTOR, "button[data-testid*='voucher']"),
+    (By.CSS_SELECTOR, "button[data-testid*='offer']"),
+    (By.CSS_SELECTOR, "button[aria-label*='Voucher']"),
+    (By.CSS_SELECTOR, "button[aria-label*='Fırsat']"),
+    (By.CSS_SELECTOR, "ul li:nth-child(3) button"),
+)
+
+CODE_TEXT_LOCATORS: LocatorList = (
+    (By.CSS_SELECTOR, "div[data-testid*='voucher'] p"),
+    (By.CSS_SELECTOR, "div p[data-testid*='code']"),
+    (By.CSS_SELECTOR, "p[data-testid*='voucher']"),
+    (By.CSS_SELECTOR, "main div p"),
+)
 
 
 def setup_driver() -> webdriver.Chrome:
@@ -47,27 +98,56 @@ def setup_driver() -> webdriver.Chrome:
     return driver
 
 
-def wait_for_clickable(driver: webdriver.Chrome, locator: Tuple[str, str], timeout: int = DEFAULT_WAIT):
-    return WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(locator))
+def _wait_for_condition(
+    driver: webdriver.Chrome,
+    locators: LocatorList,
+    condition_builder,
+    timeout: int,
+):
+    last_exc: Optional[Exception] = None
+    for locator in locators:
+        try:
+            return WebDriverWait(driver, timeout).until(condition_builder(locator))
+        except TimeoutException as exc:
+            last_exc = exc
+        except WebDriverException as exc:
+            last_exc = exc
+    if isinstance(last_exc, TimeoutException):
+        raise last_exc
+    if last_exc:
+        raise TimeoutException("Beklenen element bulunamadı.") from last_exc
+    raise TimeoutException("Beklenen element bulunamadı.")
+
+
+def wait_for_clickable(driver: webdriver.Chrome, locators: LocatorList, timeout: int = DEFAULT_WAIT):
+    return _wait_for_condition(driver, locators, EC.element_to_be_clickable, timeout)
+
+
+def wait_for_presence(driver: webdriver.Chrome, locators: LocatorList, timeout: int = DEFAULT_WAIT):
+    return _wait_for_condition(driver, locators, EC.presence_of_element_located, timeout)
+
+
+def wait_for_visibility(driver: webdriver.Chrome, locators: LocatorList, timeout: int = DEFAULT_WAIT):
+    return _wait_for_condition(driver, locators, EC.visibility_of_element_located, timeout)
 
 
 def wait_and_send_keys(
     driver: webdriver.Chrome,
-    locator: Tuple[str, str],
+    locators: LocatorList,
     value: str,
     *,
     timeout: int = DEFAULT_WAIT,
     clear: bool = True,
 ):
-    element = wait_for_clickable(driver, locator, timeout)
+    element = wait_for_clickable(driver, locators, timeout)
     if clear:
         element.clear()
     element.send_keys(value)
     return element
 
 
-def wait_and_click(driver: webdriver.Chrome, locator: Tuple[str, str], timeout: int = DEFAULT_WAIT):
-    element = wait_for_clickable(driver, locator, timeout)
+def wait_and_click(driver: webdriver.Chrome, locators: LocatorList, timeout: int = DEFAULT_WAIT):
+    element = wait_for_clickable(driver, locators, timeout)
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
     try:
         element.click()
@@ -99,8 +179,8 @@ def random_password(length: int = 12) -> str:
 def parse_offer_code(raw_text: str) -> Optional[str]:
     if not raw_text:
         return None
-    parts = raw_text.strip().split()
-    return parts[-1] if parts else None
+    candidates = CODE_PATTERN.findall(raw_text.upper())
+    return candidates[-1] if candidates else None
 
 
 def create_hm_account(driver: webdriver.Chrome) -> Tuple[Optional[str], Optional[str]]:
@@ -108,28 +188,28 @@ def create_hm_account(driver: webdriver.Chrome) -> Tuple[Optional[str], Optional
     password = random_password()
 
     try:
-        wait_and_send_keys(driver, EMAIL_INPUT, email)
-        wait_and_click(driver, CONTINUE_BUTTON)
+        wait_and_send_keys(driver, EMAIL_INPUT_LOCATORS, email)
+        wait_and_click(driver, CONTINUE_BUTTON_LOCATORS)
 
-        wait_and_send_keys(driver, PASSWORD_INPUT, password)
+        wait_and_send_keys(driver, PASSWORD_INPUT_LOCATORS, password)
 
-        for locator, value in (
-            (BIRTH_DAY_INPUT, "30"),
-            (BIRTH_MONTH_INPUT, "03"),
-            (BIRTH_YEAR_INPUT, "2000"),
+        for locators, value in (
+            (BIRTH_DAY_INPUT_LOCATORS, "30"),
+            (BIRTH_MONTH_INPUT_LOCATORS, "03"),
+            (BIRTH_YEAR_INPUT_LOCATORS, "2000"),
         ):
-            wait_and_send_keys(driver, locator, value)
+            wait_and_send_keys(driver, locators, value)
 
-        wait_and_click(driver, REGISTER_BUTTON)
+        wait_and_click(driver, REGISTER_BUTTON_LOCATORS)
 
         try:
-            wait_and_click(driver, OFFER_BUTTON, timeout=15)
+            wait_and_click(driver, OFFER_BUTTON_LOCATORS, timeout=15)
         except TimeoutException:
             print("Fırsat kodu butonu görüntülenemedi.")
             return email, None
 
         try:
-            code_element = WebDriverWait(driver, 15).until(EC.visibility_of_element_located(CODE_TEXT))
+            code_element = wait_for_visibility(driver, CODE_TEXT_LOCATORS, timeout=15)
         except TimeoutException:
             print("Fırsat kodu metni yüklenmedi.")
             return email, None
@@ -174,7 +254,7 @@ def main() -> None:
                 break
 
             try:
-                WebDriverWait(driver, DEFAULT_WAIT).until(EC.presence_of_element_located(EMAIL_INPUT))
+                wait_for_presence(driver, EMAIL_INPUT_LOCATORS)
             except TimeoutException:
                 print("Giriş sayfası zaman aşımına uğradı.")
                 break
