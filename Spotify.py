@@ -17,7 +17,7 @@ DEFAULT_WAIT = 20
 ACCOUNT_CREATION_COUNT = 3
 
 EMAIL_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div/input")
-CONTINUE_BUTTON = (By.XPATH, "/html/body/div/main/div/form/button")
+CONTINUE_BUTTON = (By.XPATH, "/html/body/div[1]/main/div/form/div[2]/button")
 PASSWORD_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[1]/div/input")
 BIRTH_DAY_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[1]")
 BIRTH_MONTH_INPUT = (By.XPATH, "/html/body/div/main/div/form/div[3]/div/div/input[2]")
